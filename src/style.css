@@ -4,3 +4,31 @@
 @media(max-width:720px){.sidebar{position:relative;width:auto;height:auto;padding:13px 17px;display:block}.brand{padding:0}.side-caption,.side-link,.side-rule,.sidebar-bottom{display:none}.main-content{margin:0;padding:25px 14px 18px}.page-header{align-items:flex-start;flex-direction:column;gap:16px;margin-bottom:19px}.page-header h1{font-size:37px}.page-header p{font-size:11px}.header-actions{width:100%;justify-content:space-between}.notification-button,.primary-button{padding:10px 12px;font-size:10px}.overview-strip{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px;padding:15px;margin-bottom:14px}.overview-item{grid-column:span 2}.overview-divider{display:none}.overview-metric{border-top:1px solid #d8d6cd;padding-top:11px}.metric-number{font-size:24px}.workspace-grid{gap:13px}.calendar-card,.day-card,.agenda-section{padding:17px 15px}.calendar-day{height:43px}.calendar-foot{gap:10px;flex-wrap:wrap}.calendar-foot-note{width:100%;margin:0}.agenda-section{margin-top:13px}.agenda-heading{align-items:flex-start;flex-direction:column;gap:13px}.agenda-heading h2{font-size:25px}.agenda-tools{width:100%}.search-box{flex:1}.search-box input{width:100%;min-width:0}.filter-select{flex-shrink:0}.agenda-row{gap:8px}.agenda-category{display:none}.priority-tag{display:none}.agenda-event-info b{font-size:10px}.agenda-event-info span{font-size:8px}.field-pair{gap:8px}.event-modal{padding:22px 18px}.modal-top h2{font-size:24px}.toast{right:12px;bottom:12px;left:12px;justify-content:center}}
 @media(max-width:380px){.main-content{padding-inline:10px}.page-header h1{font-size:33px}.calendar-card,.day-card,.agenda-section{padding-inline:12px}.calendar-day{height:38px}.calendar-navigation h3{min-width:130px}.field-pair{grid-template-columns:1fr}.overview-item strong{font-size:16px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Recursos novos: semana, recorrência, conflitos e impressão */
+.week-planner{margin-top:18px;padding:25px 27px;background:#fffefa;border:1px solid #e9e7df;border-radius:17px;box-shadow:0 8px 28px rgba(44,39,30,.035)}
+.week-planner-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:19px}
+.week-planner-head h2{font:30px 'DM Serif Display',serif;font-weight:400;margin:5px 0 2px;color:#292923}
+.week-planner-head p{font-size:12px;color:#88877f;margin:0}
+.print-button{display:flex;align-items:center;gap:8px}
+.week-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:9px}
+.week-day{min-width:0;border-left:1px solid #e9e7df;padding-left:10px}
+.week-date{display:flex;align-items:baseline;gap:6px;margin-bottom:10px}
+.week-date b{font:25px 'DM Serif Display',serif;color:#9a644d}
+.week-date span{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:#88877f}
+.week-day-items{display:flex;flex-direction:column;gap:7px}
+.week-event{display:flex;align-items:flex-start;gap:7px;text-align:left;border:0;background:#f7f5ef;border-radius:8px;padding:8px 7px;cursor:pointer;min-width:0;transition:background .2s,transform .2s}
+.week-event:hover{background:#f0ebe2;transform:translateY(-1px)}
+.week-event>i{width:5px;height:28px;border-radius:8px;flex:none}
+.week-event span{min-width:0}
+.week-event b,.week-event small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.week-event b{font-size:10px;color:#37362f;font-weight:700}
+.week-event small{font-size:9px;color:#89877e;margin-top:4px}
+.week-empty{padding:22px;border:1px dashed #dedbd1;border-radius:10px;color:#89877e;font-size:12px;text-align:center}
+.conflict-warning{display:flex;align-items:flex-start;gap:9px;margin:15px 0 4px;padding:11px 12px;border-radius:9px;background:#fbf0e7;color:#986044;font-size:11px;line-height:1.5}
+.conflict-warning svg{flex:none;margin-top:1px}
+.conflict-warning b{display:block;color:#865237}
+.timeline-actions button{display:inline-flex;align-items:center;gap:5px}
+@media(max-width:1050px){.week-days{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:17px}}
+@media(max-width:650px){.week-planner{padding:18px 15px;margin-top:13px}.week-planner-head h2{font-size:26px}.week-days{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.week-day{padding-left:9px}.week-date b{font-size:22px}.print-button{font-size:0;padding:9px}.print-button svg{width:17px;height:17px}.timeline-actions{flex-wrap:wrap}}
+@media print{body,.app-shell{background:#fff!important}.sidebar,.header-actions,.print-button,.agenda-tools,.category-tabs,.timeline-actions,.row-edit,.complete-button,.modal-layer,.toast{display:none!important}.main-content{margin:0!important;padding:0!important;max-width:none!important}.page-header{padding-bottom:12px}.overview-strip,.calendar-card,.day-card,.week-planner,.agenda-section{box-shadow:none!important;border:1px solid #ddd!important;break-inside:avoid}.workspace-grid{grid-template-columns:1fr 1fr!important}.week-days{grid-template-columns:repeat(4,1fr)}.week-planner,.agenda-section{margin-top:12px}.agenda-row{break-inside:avoid}}

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlarmClock, ArrowDownToLine, Bell, BellRing, CalendarDays, Check, CheckCircle2,
   ChevronLeft, ChevronRight, Circle, Clock3, Download, FileUp, MapPin, Menu,
-  MoreHorizontal, Plus, Search, SlidersHorizontal, Sparkles, Tag, Trash2, X
+  MoreHorizontal, Plus, Search, SlidersHorizontal, Sparkles, Tag, Trash2, X, Copy, Printer, AlertTriangle
 } from 'lucide-react';
 
 const STORAGE_KEY = 'nao-me-esqueca-events-v2';
@@ -13,7 +13,16 @@ const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const dateObj = value => new Date(`${value}T12:00:00`);
 const formatDate = value => dateObj(value).toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'});
 const uid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const emptyForm = date => ({ title:'', date:date || todayISO(), time:'09:00', category:'Pessoal', priority:'Normal', location:'', notes:'', duration:'60' });
+const emptyForm = date => ({ title:'', date:date || todayISO(), time:'09:00', category:'Pessoal', priority:'Normal', location:'', notes:'', duration:'60', repeat:'Não repetir', repeatCount:'4' });
+const toMinutes = value => { const [h,m]=(value||'09:00').split(':').map(Number); return h*60+m; };
+const shiftDate = (iso, repeat, index) => {
+  const d=dateObj(iso), originalDay=d.getDate();
+  if(repeat==='Diariamente') d.setDate(d.getDate()+index);
+  if(repeat==='Semanalmente') d.setDate(d.getDate()+7*index);
+  if(repeat==='Mensalmente'){d.setDate(1);d.setMonth(d.getMonth()+index);d.setDate(Math.min(originalDay,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));}
+  if(repeat==='Anualmente'){d.setDate(1);d.setFullYear(d.getFullYear()+index);d.setMonth(dateObj(iso).getMonth());d.setDate(Math.min(originalDay,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));}
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
 
 function App(){
   const [events,setEvents] = useState(()=>{
@@ -60,6 +69,13 @@ function App(){
   const completedCount = events.filter(e=>e.completed).length;
   const nextEvent = upcoming[0];
   const dayEvents = sortedEvents.filter(e=>e.date===selected);
+  const hasConflict = dayEvents.some((event,index)=>dayEvents.slice(index+1).some(other=>{
+    const aStart=toMinutes(event.time), aEnd=aStart+Number(event.duration||60);
+    const bStart=toMinutes(other.time), bEnd=bStart+Number(other.duration||60);
+    return aStart<bEnd && bStart<aEnd;
+  }));
+  const nextSevenDays = Array.from({length:7},(_,i)=>{const d=dateObj(todayISO());d.setDate(d.getDate()+i);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;});
+  const weekEvents = sortedEvents.filter(e=>nextSevenDays.includes(e.date)&&!e.completed);
   const visibleEvents = sortedEvents.filter(e=>{
     const matchText=(e.title+' '+(e.notes||'')+' '+(e.location||'')+' '+e.category).toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'));
     const matchFilter=filter==='Todos' || (filter==='Pendentes'&&!e.completed&&e.date>=todayISO()) || (filter==='Concluídos'&&e.completed) || (filter==='Atrasados'&&!e.completed&&e.date<todayISO());
@@ -71,12 +87,21 @@ function App(){
   const openEdit=e=>{setEditing(e.id);setForm({...emptyForm(e.date),...e});setModal(true)};
   const save=()=>{
     if(!form.title.trim()||!form.date){setToast('Preencha o título e a data.');return;}
-    const item={...form,title:form.title.trim(),id:editing||uid(),completed:editing?!!events.find(e=>e.id===editing)?.completed:false};
-    setEvents(prev=>editing?prev.map(e=>e.id===editing?item:e):[...prev,item]);
-    setSelected(form.date);setMonth(new Date(`${form.date}T12:00:00`));setModal(false);setToast(editing?'Compromisso atualizado.':'Compromisso salvo.');
+    if(editing){
+      const item={...form,title:form.title.trim(),id:editing,completed:!!events.find(e=>e.id===editing)?.completed};
+      setEvents(prev=>prev.map(e=>e.id===editing?item:e)); setToast('Compromisso atualizado.');
+    } else {
+      const count=form.repeat==='Não repetir'?1:Math.min(24,Math.max(2,Number(form.repeatCount)||4));
+      const seriesId=count>1?uid():null;
+      const additions=Array.from({length:count},(_,index)=>({...form,title:form.title.trim(),id:uid(),seriesId,date:shiftDate(form.date,form.repeat,index),repeat:'Não repetir',repeatCount:'1',completed:false}));
+      setEvents(prev=>[...prev,...additions]); setToast(count>1?`${count} compromissos adicionados à agenda.`:'Compromisso salvo.');
+    }
+    setSelected(form.date);setMonth(new Date(`${form.date}T12:00:00`));setModal(false);
   };
   const toggleDone=(id)=>setEvents(prev=>prev.map(e=>e.id===id?{...e,completed:!e.completed}:e));
   const remove=(id)=>{setEvents(prev=>prev.filter(e=>e.id!==id));setToast('Compromisso excluído.');};
+  const duplicate=(event)=>{const copy={...event,id:uid(),date:shiftDate(event.date,'Diariamente',1),completed:false,seriesId:null,repeat:'Não repetir'};setEvents(prev=>[...prev,copy]);setToast('Cópia criada para o dia seguinte.');};
+  const printAgenda=()=>window.print();
   const askPermission=async()=>{
     if(!('Notification'in window)){setToast('Este navegador não oferece notificações.');return;}
     const p=await Notification.requestPermission();setPermission(p);
@@ -131,9 +156,15 @@ function App(){
 
         <section className="day-card">
           <div className="day-card-top"><div><span className="section-overline">SEU DIA, SEM PRESSA</span><h2>{dateObj(selected).toLocaleDateString('pt-BR',{weekday:'long'})}</h2><p>{formatDate(selected)}</p></div><div className="day-count">{dayEvents.length}<small>{dayEvents.length===1?'item':'itens'}</small></div></div>
-          <div className="day-timeline">{dayEvents.length===0?<div className="day-empty"><div className="empty-illustration"><CalendarDays size={24}/></div><b>Dia em aberto.</b><p>Um espaço livre também é parte de uma boa agenda.</p><button className="inline-add" onClick={()=>openNew(selected)}><Plus size={15}/> Adicionar algo</button></div>:dayEvents.map(e=><article className={`timeline-event ${e.completed?'is-completed':''}`} key={e.id}><div className="timeline-time">{e.time}</div><div className="timeline-marker" style={{'--event-color':CATEGORY_COLORS[e.category]||CATEGORY_COLORS.Outros}}/><div className="timeline-content" onClick={()=>openEdit(e)}><div className="timeline-title-row"><b>{e.title}</b><button className="more-button" title="Editar" onClick={()=>openEdit(e)}><MoreHorizontal size={17}/></button></div><div className="timeline-meta"><span>{e.category}</span>{e.location&&<span><MapPin size={12}/>{e.location}</span>}</div>{e.notes&&<p>{e.notes}</p>}<div className="timeline-actions"><button onClick={()=>toggleDone(e.id)}>{e.completed?<CheckCircle2 size={14}/>:<Circle size={14}/>} {e.completed?'Concluído':'Marcar como feito'}</button><button onClick={()=>remove(e.id)} aria-label="Excluir compromisso"><Trash2 size={13}/></button></div></div></article>)}</div>
+          {hasConflict&&<div className="conflict-warning"><AlertTriangle size={16}/><span><b>Atenção: horários sobrepostos.</b> Dois compromissos deste dia podem acontecer ao mesmo tempo.</span></div>}
+          <div className="day-timeline">{dayEvents.length===0?<div className="day-empty"><div className="empty-illustration"><CalendarDays size={24}/></div><b>Dia em aberto.</b><p>Um espaço livre também é parte de uma boa agenda.</p><button className="inline-add" onClick={()=>openNew(selected)}><Plus size={15}/> Adicionar algo</button></div>:dayEvents.map(e=><article className={`timeline-event ${e.completed?'is-completed':''}`} key={e.id}><div className="timeline-time">{e.time}</div><div className="timeline-marker" style={{'--event-color':CATEGORY_COLORS[e.category]||CATEGORY_COLORS.Outros}}/><div className="timeline-content" onClick={()=>openEdit(e)}><div className="timeline-title-row"><b>{e.title}</b><button className="more-button" title="Editar" onClick={()=>openEdit(e)}><MoreHorizontal size={17}/></button></div><div className="timeline-meta"><span>{e.category}</span>{e.location&&<span><MapPin size={12}/>{e.location}</span>}</div>{e.notes&&<p>{e.notes}</p>}<div className="timeline-actions"><button onClick={()=>toggleDone(e.id)}>{e.completed?<CheckCircle2 size={14}/>:<Circle size={14}/>} {e.completed?'Concluído':'Marcar como feito'}</button><button onClick={()=>duplicate(e)} title="Duplicar para amanhã"><Copy size={13}/> Duplicar</button><button onClick={()=>remove(e.id)} aria-label="Excluir compromisso"><Trash2 size={13}/></button></div></div></article>)}</div>
         </section>
       </div>
+
+      <section className="week-planner">
+        <div className="week-planner-head"><div><span className="section-overline">OS PRÓXIMOS PASSOS</span><h2>Esta semana</h2><p>Uma visão rápida dos próximos sete dias.</p></div><button className="quiet-button print-button" onClick={printAgenda}><Printer size={15}/> Imprimir agenda</button></div>
+        {weekEvents.length===0?<div className="week-empty">Sua semana está livre por enquanto. Aproveite para planejar com calma.</div>:<div className="week-days">{nextSevenDays.map(day=>{const items=weekEvents.filter(e=>e.date===day);if(!items.length)return null;return <div className="week-day" key={day}><div className="week-date"><b>{dateObj(day).getDate().toString().padStart(2,'0')}</b><span>{dateObj(day).toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','')}</span></div><div className="week-day-items">{items.map(e=><button className="week-event" key={e.id} onClick={()=>{setSelected(e.date);setMonth(new Date(`${e.date}T12:00:00`));openEdit(e);}}><i style={{background:CATEGORY_COLORS[e.category]||CATEGORY_COLORS.Outros}}/><span><b>{e.title}</b><small>{e.time} · {e.category}</small></span></button>)}</div></div>})}</div>}
+      </section>
 
       <section className="agenda-section" id="agenda-section">
         <div className="agenda-heading"><div><span className="section-overline">TUDO NO SEU TEMPO</span><h2>Minha agenda</h2><p>Encontre, acompanhe e organize seus compromissos.</p></div><div className="agenda-tools"><label className="search-box"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar na agenda"/></label><label className="filter-select"><SlidersHorizontal size={15}/><select value={filter} onChange={e=>setFilter(e.target.value)}><option>Todos</option><option>Pendentes</option><option>Concluídos</option><option>Atrasados</option></select></label></div></div>
@@ -149,8 +180,9 @@ function App(){
       <div className="field-pair"><label className="field-label">Data<input type="date" required value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></label><label className="field-label">Horário<input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value})}/></label></div>
       <div className="field-pair"><label className="field-label">Categoria<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label><label className="field-label">Prioridade<select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}><option>Normal</option><option>Alta</option><option>Baixa</option></select></label></div>
       <div className="field-pair"><label className="field-label">Local (opcional)<input placeholder="Onde vai acontecer?" value={form.location} onChange={e=>setForm({...form,location:e.target.value})}/></label><label className="field-label">Duração<select value={form.duration} onChange={e=>setForm({...form,duration:e.target.value})}><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">1 hora</option><option value="90">1h30</option><option value="120">2 horas</option><option value="180">3 horas</option></select></label></div>
+      <div className="field-pair"><label className="field-label">Repetir<select disabled={!!editing} value={form.repeat||'Não repetir'} onChange={e=>setForm({...form,repeat:e.target.value})}><option>Não repetir</option><option>Diariamente</option><option>Semanalmente</option><option>Mensalmente</option><option>Anualmente</option></select></label>{form.repeat&&form.repeat!=='Não repetir'&&<label className="field-label">Quantidade de vezes<input type="number" min="2" max="24" value={form.repeatCount||4} onChange={e=>setForm({...form,repeatCount:e.target.value})}/></label>}</div>
       <label className="field-label">Anotações<textarea rows="3" placeholder="O que mais você precisa lembrar?" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></label>
-      <div className="reminder-explainer"><BellRing size={17}/><div><b>Lembretes um dia antes e no dia</b><span>Ative as notificações do navegador. Para receber avisos com o app fechado, será necessária uma versão com notificações Push.</span></div></div>
+      <div className="reminder-explainer"><BellRing size={17}/><div><b>{form.repeat&&form.repeat!=='Não repetir'?`Repetição ${form.repeat.toLowerCase()} · ${Math.min(24,Math.max(2,Number(form.repeatCount)||4))} ocorrências`:'Lembretes um dia antes e no dia'}</b><span>Ative as notificações do navegador. Para receber avisos com o app fechado, será necessária uma versão com notificações Push.</span></div></div>
       <div className="modal-bottom"><button type="button" className="secondary-button" onClick={()=>setModal(false)}>Cancelar</button><button type="submit" className="primary-button"><Check size={16}/>{editing?'Salvar alterações':'Salvar compromisso'}</button></div>
     </form></div>}
     {toast&&<div className="toast"><CheckCircle2 size={16}/>{toast}</div>}
